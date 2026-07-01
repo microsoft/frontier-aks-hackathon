@@ -76,8 +76,9 @@ kubectl get gatewayclass
 # Expected: approuting-istio
 
 ACR_LOGIN_SERVER=$(az acr show --name $ACR_NAME --query loginServer -o tsv)
+CHART_PATH="./Student/Resources/src/manifests/chart"
 
-helm upgrade --install fabtech ./chart \
+helm upgrade --install fabtech $CHART_PATH \
   --namespace $NAMESPACE \
   --create-namespace \
   --set api.image.repository=$ACR_LOGIN_SERVER/fabtech-api \
