@@ -6,7 +6,7 @@
 
 Pods are disposable, but application data is not. In this challenge you will add durable storage to FabTech so the database keeps its data across pod restarts and shared application content can be accessed by more than one pod.
 
-> **Note:** In Challenge 03 you deployed an **in-cluster PostgreSQL** using the Bitnami Helm chart. In this challenge you will migrate that database to a **StatefulSet backed by dynamically provisioned persistent storage** so you can observe PVC provisioning, Azure Disk attachment, and data survival across pod restarts first-hand.
+> **Note:** This challenge is a storage deep-dive. In Challenge 03 you deployed in-cluster PostgreSQL via the **Bitnami Helm chart**, which provisioned its storage through its own PersistentVolumeClaim — the storage details were abstracted away for you. Here you deploy PostgreSQL as an **explicit StatefulSet with your own StorageClass** so you can observe PVC provisioning, Azure Disk CSI attachment, and data survival across pod restarts first-hand. In production, you would use a managed **Azure Database for PostgreSQL Flexible Server** rather than either in-cluster option.
 
 ## Description
 

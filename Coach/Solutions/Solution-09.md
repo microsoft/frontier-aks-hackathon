@@ -4,7 +4,7 @@
 
 ## Notes & Guidance
 
-- **Pedagogical intent:** Challenge 03 deployed an in-cluster PostgreSQL using the Bitnami Helm chart. This challenge migrates that database to a StatefulSet backed by dynamically provisioned persistent storage. The goal is to observe PVC provisioning, Azure Disk CSI attachment, and data persistence through pod recreation first-hand.
+- **Pedagogical intent:** This challenge is a storage deep-dive that builds on the in-cluster PostgreSQL from Challenge 03 (deployed via the **Bitnami Helm chart**, whose PVC abstracted storage away). Here teams deploy PostgreSQL as an **explicit StatefulSet with an Azure Disk-backed StorageClass** so they can observe PVC provisioning, Azure Disk CSI attachment, and data persistence through pod recreation first-hand. Remind teams that production workloads should use a managed **Azure Database for PostgreSQL Flexible Server**.
 
 - Key concept to drive home: **ReadWriteOnce (RWO)** for Azure Disk (one pod at a time,
   not shareable across nodes); **ReadWriteMany (RWX)** for Azure Files (multiple pods,
