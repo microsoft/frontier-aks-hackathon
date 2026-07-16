@@ -29,6 +29,7 @@
 RG=rg-frontier-aks
 LOCATION=swedencentral
 KV_NAME=kv-frontier-$RANDOM
+# Notice that te connection string uses the $DB_PASS from Challenge 03
 
 az keyvault create \
   --resource-group $RG \
@@ -40,7 +41,7 @@ az keyvault create \
 az keyvault secret set \
   --vault-name $KV_NAME \
   --name "db-connection-string" \
-  --value "postgresql://fabadmin:<DB_PASS>@fabtech-pg-postgresql.fabtech.svc.cluster.local:5432/fabtech"
+  --value "postgresql://fabadmin:${DB_PASS}@fabtech-pg-postgresql.fabtech.svc.cluster.local:5432/fabtech"
 
 echo "Key Vault: $KV_NAME"
 ```
@@ -94,7 +95,7 @@ az identity federated-credential create \
 ### Part 3: Secrets Store CSI Driver
 
 ```bash
-# Enable Azure Key Vault Secrets Provider add-on (managed by AKS)
+# Enable Azure Key Vault Secrets Provider add-on (managed by AKS) if not already enabled
 az aks enable-addons \
   --resource-group $RG \
   --name $CLUSTER_NAME \
@@ -185,9 +186,29 @@ in the pod spec itself):
               key: connectionString
 ```
 
+Notice that this Deployment mounts the secret as a volume and also exposes it as an environment variable. The application can use either method to access the database connection string.
+
+Since we have been deploying the `fabtech-api` using helm, you can update the helm chart values to include the new service account and volume mounts, or you can patch the existing deployment with `kubectl edit deployment fabtech-api -n $NAMESPACE` and add the necessary fields.
+
+Example with helm
+
+- Edit `api-deployment.yaml` in the helm chart templates to include the service account and volume mounts as shown above.
+- Upgrade the helm release:
+```bash
+ACR_LOGIN_SERVER=$(az acr show --name $ACR_NAME --query loginServer -o tsv)
+CHART_PATH="./Student/Resources/src/manifests/chart"
+helm upgrade --install fabtech $CHART_PATH \
+  --namespace $NAMESPACE \
+  --set api.image.repository=$ACR_LOGIN_SERVER/fabtech-api \
+  --set web.image.repository=$ACR_LOGIN_SERVER/fabtech-web 
+```
+
 ### Verify
 
 ```bash
+# check rollout status
+kubectl rollout status deployment/fabtech-api -n $NAMESPACE
+# when ready, exec into the pod and check the secret mounted from Key Vault
 POD=$(kubectl get pod -n fabtech -l app=fabtech-api -o jsonpath='{.items[0].metadata.name}')
 kubectl exec -n fabtech $POD -- cat /mnt/secrets/db-connection-string
 ```
