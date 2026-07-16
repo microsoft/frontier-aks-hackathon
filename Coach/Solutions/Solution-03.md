@@ -52,7 +52,7 @@ echo "postgresql://fabadmin:${DB_PASS}@fabtech-pg-postgresql.${NAMESPACE}.svc.cl
 > **Note:** The API falls back to serving data from bundled JSON files when `DATABASE_URL` is not
 > set. The connection string will be stored in Key Vault and injected via CSI driver in Challenge 04.
 
-### Part 1 — Enable App Routing & Deploy the Helm Chart
+### Part 1 - Option A: Enable App Routing & Deploy the Helm Chart
 
 ```bash
 RG=rg-frontier-aks
@@ -132,11 +132,20 @@ spec:
 
 ```bash
 kubectl apply -f gateway.yaml
-kubectl get gateway -n fabtech          # wait for READY=True
-kubectl get httproute -n fabtech        # confirm status: Accepted
+kubectl get httproute -n fabtech        # confirm it is created
+kubectl get gateway -n fabtech          # wait for address to get an IP
 ```
 
-### Part 2 — Option B: Gateway API via Application Gateway for Containers (AGC)
+In order to test the app, get the IP address of the Gateway and access to the web app on port 80 and http. The url would be:
+
+```
+GATEWAY_IP_ADDRESS=$(kubectl get gateway fabtech-gateway -n fabtech \
+  --output jsonpath='{.status.addresses[0].value}')
+echo http://$GATEWAY_IP_ADDRESS
+```
+
+
+### Part 1 — Option B: Gateway API via Application Gateway for Containers (AGC)
 
 ```bash
 # Install the ALB Controller via Helm with Workload Identity
@@ -234,11 +243,16 @@ spec:
 
 ### Helm Upgrade & Rollback
 
+Following lines show how to upgrade the Helm release with new values, check rollout status, and rollback if needed.
+
 ```bash
 helm upgrade fabtech $CHART_PATH \
   --namespace $NAMESPACE \
-  --set api.replicaCount=4
+  --set api.replicaCount=4 \
+  --set api.image.repository=$ACR_LOGIN_SERVER/fabtech-api \
+  --set web.image.repository=$ACR_LOGIN_SERVER/fabtech-web
 
+# check rollout status and wait for all pods to be ready
 kubectl rollout status deployment/fabtech-api -n $NAMESPACE
 
 helm rollback fabtech --namespace $NAMESPACE
@@ -251,6 +265,7 @@ A `PodDisruptionBudget` ensures at least one replica stays available during node
 drains and voluntary disruptions (upgrades, scale-down):
 
 ```yaml
+# pdb.yaml
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -274,6 +289,15 @@ spec:
       app: fabtech-web
 ```
 
+Create the pdb.yaml file and apply it to the cluster:
+
+```bash
+kubectl apply -f pdb.yaml
+kubectl get pdb -n fabtech
+```
+
+Notice that the `minAvailable` value is set to 1, which means that at least one pod must be available at all times. This is important for ensuring that the application remains available during maintenance or scaling events.
+
 ### Production Readiness: Zone Spread
 
 Add `topologySpreadConstraints` to each Deployment's pod spec to distribute
@@ -289,7 +313,8 @@ topologySpreadConstraints:
       app: fabtech-api
 ```
 
-```bash
-kubectl apply -f pdb.yaml
-kubectl get pdb -n fabtech
-```
+Explanation of topologySpreadConstraints fields:
+- `maxSkew`: The maximum difference in the number of pods between zones.
+- `topologyKey`: The key that defines the topology domain (e.g., zone).
+- `whenUnsatisfiable`: Specifies what happens when the constraint is not satisfied (e.g., `DoNotSchedule`).
+- `labelSelector`: Selects the pods to which the topology spread constraint applies.
